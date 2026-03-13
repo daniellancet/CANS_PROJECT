@@ -1,0 +1,21 @@
+# Ignore all folders except Code/
+Aspiranet_Data/
+Novel_Data/
+
+# Ignore common Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment folders if any
+env/
+venv/
+*.env
+
+# Ignore Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Optional: ignore OS-specific files
+.DS_Store
+Thumbs.db

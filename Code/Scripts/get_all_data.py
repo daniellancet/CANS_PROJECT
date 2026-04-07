@@ -21,6 +21,7 @@ post_demo_columns = ["Black","Latino","No_Preference","Other","White","Spanish",
        
 folder_path = '/Users/daniellancet/Desktop/Spring_2026/CDSS_170/CANS_INCIDENTS_PROJECT/Aspiranet_Data'
 incident_category_path = '/Users/daniellancet/Desktop/Spring_2026/CDSS_170/CANS_INCIDENTS_PROJECT/Novel_Data/UPDATED Incident Matching - Exact_Column_Name_Table.csv'
+cans_category_mapping_path = '/Users/daniellancet/Desktop/Spring_2026/CDSS_170/CANS_INCIDENTS_PROJECT/Novel_Data/category_mapping.csv'
 
 
 def read_dfs(folder_path): 
@@ -41,10 +42,14 @@ def read_dfs(folder_path):
                 try:
                     df = pd.read_excel(file_path)
                     
+                    
                     if 'CANS' in file_path: 
                         dfs['CANS'] = df 
                     if 'Incidents' in file_path: 
+                        df = pd.read_excel(file_path, dtype = 'str')
+                        #df['IncidentDate'] = df['IncidentDate'].astype('timestamp64[ns]')
                         dfs['Incidents'] = df 
+                        
                     if 'Demographics' in file_path: 
                         dfs['Demographics'] = df 
             
@@ -53,7 +58,7 @@ def read_dfs(folder_path):
 
             return dfs
         
-def get_full_hazard(dfs, incident_category_path = incident_category_path, filter_amount = 200):
+def get_full_hazard(dfs, incident_category_path = incident_category_path, filter_amount = 200, filter_interval = True):
     incident_categories = pd.read_csv(incident_category_path)
     cans_cleaned = dfs['CLEANED_CANS'] 
     incidents_df = dfs['Incidents']
@@ -74,25 +79,30 @@ def get_full_hazard(dfs, incident_category_path = incident_category_path, filter
     ]
     keep_cols = [c for c in base_hazard_table.columns if c not in incident_cols]
     base_table = base_hazard_table[keep_cols]
-    full_hazard_table, base_cols, incident_cols = build_full_hazard_table(incident_cat_dict, cans_df=cans_cleaned, incidents_df=incidents_df, base_table = base_table, filter_interval=False)
+    full_hazard_table, base_cols, incident_cols = build_full_hazard_table(incident_cat_dict, cans_df=cans_cleaned, incidents_df=incidents_df, base_table = base_table, filter_interval=filter_interval, filter_amount=filter_amount)
 
 
     return full_hazard_table, base_cols, incident_cols
         
 
 
-def build_new_dfs(dfs, types = types, CANS_cols = CANS_cols, cat_cols = cat_cols, pre_demo_calls = pre_demo_calls, lowest_n_cols = 45, filter_amount = 2000): 
-    cans = dfs['CANS'] 
+def build_new_dfs(dfs, types = types, CANS_cols = CANS_cols, cat_cols = cat_cols, pre_demo_calls = pre_demo_calls, lowest_n_cols = 45, filter_amount = 2000, filter_interval = True):
+    cans = dfs['CANS']
 
-    category_mapping = cans.groupby('ItemTitle')['CANSCategoryName'].unique().to_dict()
-    item_title_mapping = {k: v[0] for k, v in category_mapping.items()}
-    cleaned_cans, lowest_n_cols = cans_pipeline(cans_scores=cans, cols=CANS_cols, types = types, cat_cols= cat_cols,top_n_lowest=lowest_n_cols, pre_demo_cols=pre_demo_calls, item_title_mapping = item_title_mapping);
+    cans_category_df = pd.read_csv(cans_category_mapping_path)
+    cans_title_mapping_raw = cans.groupby('ItemTitle')['CANSCategoryName'].unique().to_dict()
+    item_title_mapping = {k: v[0] for k, v in cans_title_mapping_raw.items()}
+    cleaned_cans, lowest_n_cols, group_cols = cans_pipeline(
+        cans_scores=cans, cols=CANS_cols, types=types, cat_cols=cat_cols,
+        top_n_lowest=lowest_n_cols, pre_demo_cols=pre_demo_calls,
+        item_title_mapping=item_title_mapping, category_mapping=cans_category_df,
+    )
 
     dfs['CLEANED_CANS'] = cleaned_cans
-    full_hazard_table, base_cols, incident_cols = get_full_hazard(dfs, filter_amount=filter_amount)
-    dfs['FULL_HAZARD_TABLE'] = full_hazard_table 
+    full_hazard_table, base_cols, incident_cols = get_full_hazard(dfs, filter_amount=filter_amount, filter_interval=filter_interval)
+    dfs['FULL_HAZARD_TABLE'] = full_hazard_table
 
-    return dfs, lowest_n_cols, base_cols, incident_cols
+    return dfs, lowest_n_cols, base_cols, incident_cols, group_cols
 
 
 

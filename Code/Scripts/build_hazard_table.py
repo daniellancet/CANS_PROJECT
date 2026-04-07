@@ -80,14 +80,23 @@ def make_hazard_table(cans_df, incidents_df, incident_list,
         past_incidents = [d for d in incidents if d <= row['start']]
         if len(past_incidents) == 0:
             return np.nan
-        return (row['start'] - past_incidents[-1]).days
+        return (row['start'] - max(past_incidents)).days
     
     cans['days_since_last_incident'] = cans.apply(days_since_last_incident, axis=1)
+    cans['days_since_last_incident'] = cans['days_since_last_incident'].fillna(0)
+
+    def count_prior_incidents(row):
+        incidents = incident_dict.get(row['OptionsNumber'], [])
+        past_incidents = [d for d in incidents if d <= row['start']]
+        return len(past_incidents)
+
+    cans['prior_incident_count'] = cans.apply(count_prior_incidents, axis=1)
 
     hazard_table = cans
 
     if filter_interval:
-        hazard_table = hazard_table[hazard_table['stop_days'] - hazard_table['start_days'] <= filter_amount]
+        interval_len = (cans['stop'] - cans['start']).dt.days
+        hazard_table = hazard_table[interval_len <= filter_amount]
     
     return hazard_table
 
@@ -110,13 +119,15 @@ def build_full_hazard_table(
     'event',
     'event_date',
     'stop_days',
-    'days_since_last_incident'
+    'days_since_last_incident',
+    'prior_incident_count'
  ]
 
     base_table_no_incidents = base_table.drop(columns=event_cols, errors='ignore')
     base_cols = base_table_no_incidents.columns
     
     incident_cols_dict = {}
+    result_table = base_table_no_incidents
 
     for incident_cat, incident_cat_lst in incident_cat_dict.items():
 
@@ -131,7 +142,8 @@ def build_full_hazard_table(
         )
 
         incident_h_table = hazard_table[
-            ['OptionsNumber','DateCompleted','event_date','event','stop_days', 'days_since_last_incident']
+            ['OptionsNumber','DateCompleted','event_date','event','stop_days',
+             'days_since_last_incident', 'prior_incident_count']
         ]
 
         rename_cols = {
@@ -140,7 +152,8 @@ def build_full_hazard_table(
                         'event_date',
                         'event',
                         'stop_days',
-                        'days_since_last_incident'
+                        'days_since_last_incident',
+                        'prior_incident_count'
                         ]
         }
 
@@ -149,12 +162,11 @@ def build_full_hazard_table(
         incident_cols_dict[incident_cat] = list(rename_cols.values())
 
 
-        base_table = base_table.merge(
+        result_table = result_table.merge(
             incident_h_table,
             on=['OptionsNumber','DateCompleted'],
             how='left'
         )
-    incident_cols = [c for c in base_table.columns if c not in base_cols]
+    incident_cols = [c for c in result_table.columns if c not in base_cols]
 
- 
-    return base_table, base_cols, incident_cols_dict
+    return result_table, base_cols, incident_cols_dict

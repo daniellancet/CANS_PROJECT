@@ -1,5 +1,6 @@
-import pandas as pd 
-import numpy as np 
+import pandas as pd
+import numpy as np
+from collections import defaultdict
 
 
 
@@ -103,15 +104,10 @@ def impute_historical_median(df):
     
     for col in cols_to_fill:
 
-        past_series = (
-            df_sorted.groupby('OptionsNumber')[col]
-            .expanding()
-            .median()
-            .shift()
+        past_series = df_sorted.groupby('OptionsNumber')[col].transform(
+            lambda x: x.expanding().median().shift()
         )
-    
-        past_series = past_series.reset_index(level=0, drop=True)
-        
+
         df_sorted[col] = df_sorted[col].fillna(past_series)
     
     return df_sorted
@@ -134,7 +130,6 @@ def impute_missing_values(df, item_title_mapping, cans_cols):
     df = impute_historical_median(df)
     df = category_impute(df, item_title_mapping)
     df = row_median_impute(df, cans_cols)
-
  
     return df
 
@@ -160,7 +155,7 @@ def consolidate_ethnicity(ethnicity_series):
         'white - middle eastern': 'White',
         'white - armenian': 'White',
         'white - european': 'White',
-        'spanish': 'White',
+        'spanish': 'Latino',
         'hispanic/latino': 'Latino',
         'mexican': 'Latino',
         'central american': 'Latino',
@@ -216,7 +211,7 @@ def model_ready_df(df, item_title_mapping, top_n_lowest_nulls=45):
 
 
 
-def cans_pipeline(cans_scores, cols, types, top_n_lowest, pre_demo_cols, cat_cols, item_title_mapping):
+def cans_pipeline(cans_scores, cols, types, top_n_lowest, pre_demo_cols, cat_cols, item_title_mapping, category_mapping): # 
     
     df, excluded = data_cleaning_pipeline(cans_scores, cols = cols, types = types, cat_cols = cat_cols) 
     pivoted_df, lowest_null_n_cans = model_ready_df(df, item_title_mapping= item_title_mapping, top_n_lowest_nulls = top_n_lowest)
@@ -225,7 +220,7 @@ def cans_pipeline(cans_scores, cols, types, top_n_lowest, pre_demo_cols, cat_col
     df = df.copy()
     df['Ethnicity'] = consolidate_ethnicity(df[pre_demo_cols]['Ethnicity'])
 
-    eth_dummies = pd.get_dummies(df['Ethnicity']).astype(int).drop(columns=['White'])
+    eth_dummies = pd.get_dummies(df['Ethnicity']).astype(int).drop(columns=['Asian'])
     language_dummies = pd.get_dummies(df['PrimaryLanguage']).astype(int).drop(columns=['English'])
     gender_dummies = pd.get_dummies(df['Gender']).astype(int).drop(columns=['F'])
 
@@ -238,5 +233,20 @@ def cans_pipeline(cans_scores, cols, types, top_n_lowest, pre_demo_cols, cat_col
         how='left'
     )
 
-    
-    return merged_df, lowest_null_n_cans
+    # Sum CANS item scores within each group and add as new columns
+    var_map = {
+        var: group
+        for var, group in zip(category_mapping['variable'], category_mapping['group'])
+    }
+
+    group_vars = defaultdict(list)
+    for var, group in var_map.items():
+        if var in merged_df.columns:
+            group_vars[group].append(var)
+
+    for group, group_item_cols in group_vars.items():
+        merged_df[group] = merged_df[group_item_cols].sum(axis=1)
+
+    group_cols = list(group_vars.keys())
+
+    return merged_df, lowest_null_n_cans, group_cols

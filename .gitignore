@@ -2,6 +2,21 @@
 Aspiranet_Data/
 Novel_Data/
 
+# Hide scripts except dashboard
+Code/Scripts/__init__.py
+Code/Scripts/build_hazard_table.py
+Code/Scripts/cans_data_cleaning_pipeline.py
+Code/Scripts/get_all_data.py
+Code/Scripts/model_visualizations.py
+
+# Hide notebooks except the two kept ones
+Code/Incident_Cox_Models/
+Code/Notebooks/Build_All_Data.ipynb
+Code/Notebooks/CANS_score_Stats.ipynb
+Code/Notebooks/Cox_Model.ipynb
+Code/Notebooks/Incidents_Model.ipynb
+Code/Notebooks/Total_Frame_Demo.ipynb
+
 # Ignore common Python artifacts
 __pycache__/
 *.pyc

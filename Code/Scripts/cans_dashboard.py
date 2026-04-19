@@ -309,9 +309,9 @@ evt_col = f"status_{incident_type}"
 
 cph_group, group_tbl, covariates, n_left_censored = fit_group_model(incident_type)
 
-# Sidebar stats
-n_total = len(just_first.dropna(subset=[dur_col, evt_col]))
-n_events = int(just_first[evt_col].dropna().sum())
+# Sidebar stats — derived from fitted model (after left-censoring exclusion)
+n_total = len(cph_group.event_observed)
+n_events = int(cph_group.event_observed.sum())
 with st.sidebar:
     st.metric("Youth (first assessment)", n_total)
     st.metric("Observed events", n_events)

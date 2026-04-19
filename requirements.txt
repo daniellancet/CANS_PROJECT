@@ -3,3 +3,5 @@ numpy
 pandas
 streamlit
 lifelines
+google-auth
+google-api-python-client

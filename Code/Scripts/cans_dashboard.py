@@ -3,19 +3,37 @@ CANS Incidents Streamlit Dashboard
 Tabs: Group Coef Plot | Risk Curves | Drill Down | Profile Builder
 """
 
-from pathlib import Path
+import io
 import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 from lifelines import CoxPHFitter
 
 
-REPO_ROOT = Path(__file__).parent.parent.parent
-HAZARD_PATH = REPO_ROOT / "Novel_Data" / "final_hazard_table.csv"
-CAT_MAP_PATH = REPO_ROOT / "Novel_Data" / "category_mapping.csv"
+def _drive_service():
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/drive.readonly"],
+    )
+    return build("drive", "v3", credentials=creds)
+
+
+def _download_csv(file_id: str) -> pd.DataFrame:
+    service = _drive_service()
+    request = service.files().get_media(fileId=file_id)
+    buf = io.BytesIO()
+    downloader = MediaIoBaseDownload(buf, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    buf.seek(0)
+    return pd.read_csv(buf)
 
 INCIDENT_TYPES = [
     "Abuse/CPS Report",
@@ -54,8 +72,8 @@ def label(col: str) -> str:
 
 @st.cache_data(show_spinner="Loading data…")
 def load_data():
-    hazard = pd.read_csv(HAZARD_PATH)
-    cat_map = pd.read_csv(CAT_MAP_PATH)
+    hazard = _download_csv(st.secrets["drive"]["hazard_file_id"])
+    cat_map = _download_csv(st.secrets["drive"]["cat_map_file_id"])
     first = hazard[hazard["DateCompleted"] == hazard["origin_assessment"]].copy()
     return hazard, first, cat_map
 

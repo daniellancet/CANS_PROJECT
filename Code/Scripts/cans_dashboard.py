@@ -349,7 +349,7 @@ with tab1:
         return ""
 
     st.dataframe(
-        summary_display.style.applymap(highlight_p, subset=["p"]),
+        summary_display.style.map(highlight_p, subset=["p"]),
         use_container_width=True,
     )
     st.caption(f"Concordance index: {cph_group.concordance_index_:.4f}")

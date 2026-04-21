@@ -255,7 +255,7 @@ def plot_baseline_hazard(cph):
     ax.set_ylabel("Monthly Incident Probability (Incident-Free to Date)")
     ax.set_title("Baseline Hazard — First Year")
     ax.set_xticks(day_labels)
-    ax.set_xticklabels([i + 1 for i in range(len(day_labels))])
+    ax.set_xticklabels([i  for i in range(len(day_labels))])
     ax.set_xlim(0, 365)
     plt.tight_layout()
     return fig

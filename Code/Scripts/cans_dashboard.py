@@ -289,7 +289,7 @@ def plot_hazard_by_score(cph, cox_table, cans):
     ax.set_ylabel("Monthly Incident Probability (Incident-Free to Date)")
     ax.set_title(f"Hazard Function by {clean_name} Score (Top Predictor)")
     ax.set_xticks(day_labels)
-    ax.set_xticklabels([i + 1 for i in range(len(day_labels))])
+    ax.set_xticklabels([i for i in range(len(day_labels))])
     ax.set_xlim(0, 365)
     ax.legend()
     plt.tight_layout()

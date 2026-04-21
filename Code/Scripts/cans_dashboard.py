@@ -240,6 +240,62 @@ def plot_90day_bars(cph_drill, items, drill_df, incident_type, dur_col, evt_col)
     return figs
 
 
+def plot_baseline_hazard(cph):
+    bh = cph.baseline_hazard_["baseline hazard"].head(365)
+    bin_size = 30
+    binned = bh.groupby(bh.index // bin_size).sum()
+    day_labels = binned.index * bin_size
+    cond_prob = 1 - np.exp(-binned.values)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(day_labels, cond_prob, color="steelblue")
+    ax.scatter(day_labels, cond_prob, color="white", edgecolors="steelblue",
+               linewidths=1.5, s=60, zorder=5)
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Monthly Incident Probability (Incident-Free to Date)")
+    ax.set_title("Baseline Hazard — First Year")
+    ax.set_xticks(day_labels)
+    ax.set_xticklabels([i + 1 for i in range(len(day_labels))])
+    ax.set_xlim(0, 365)
+    plt.tight_layout()
+    return fig
+
+
+def plot_hazard_by_score(cph, cox_table, cans):
+    covar = cph.summary.loc[cans, "coef"].idxmax()
+    coef = cph.params_[covar]
+    bh = cph.baseline_hazard_["baseline hazard"].head(365)
+    bin_size = 30
+    binned_base = bh.groupby(bh.index // bin_size).sum()
+    day_labels = binned_base.index * bin_size
+
+    scores = cox_table[covar]
+    vals = sorted({
+        int(round(scores.quantile(0.25))),
+        int(round(scores.quantile(0.75))),
+        int(round(scores.quantile(0.90))),
+    })
+    clean_name = covar.replace("alt_", "").replace("_score", "").replace("_", " ")
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    colors = ["#2ca02c", "#ff7f0e", "#d62728"]
+    for val, color in zip(vals, colors):
+        cond_prob = 1 - np.exp(-binned_base.values * np.exp(coef * val))
+        ax.plot(day_labels, cond_prob, color=color, label=f"Score = {val}")
+        ax.scatter(day_labels, cond_prob, color="white", edgecolors=color,
+                   linewidths=1.5, s=60, zorder=5)
+
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Monthly Incident Probability (Incident-Free to Date)")
+    ax.set_title(f"Hazard Function by {clean_name} Score (Top Predictor)")
+    ax.set_xticks(day_labels)
+    ax.set_xticklabels([i + 1 for i in range(len(day_labels))])
+    ax.set_xlim(0, 365)
+    ax.legend()
+    plt.tight_layout()
+    return fig
+
+
 def plot_profile_curves(cph_drill, profiles, drill_df, dur_col, evt_col, incident_type):
     feature_cols = [c for c in drill_df.columns if c not in {dur_col, evt_col}]
     baseline = drill_df[feature_cols].median().to_frame().T.reset_index(drop=True)
@@ -318,11 +374,12 @@ with st.sidebar:
     st.metric("Censoring rate", f"{(1 - n_events / n_total) * 100:.1f}%")
 
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Group Coefficients",
     "Risk Curves",
     "Drill Down",
     "Profile Builder",
+    "Hazard Functions",
 ])
 
 
@@ -538,3 +595,28 @@ with tab4:
 
                 st.markdown("#### 90-Day Risk Summary")
                 st.dataframe(summary_tbl, use_container_width=True, hide_index=True)
+
+
+with tab5:
+    st.subheader(f"Hazard Functions — {incident_type.replace('_', ' ')}")
+
+    st.markdown("#### Baseline Hazard")
+    st.caption(
+        "Monthly conditional incident probability for a youth with median CANS scores, "
+        "assuming they have been incident-free to date."
+    )
+    fig_bh = plot_baseline_hazard(cph_group)
+    st.pyplot(fig_bh)
+    plt.close(fig_bh)
+
+    st.markdown("---")
+    st.markdown("#### Hazard by Top Predictor Score")
+    top_covar = cph_group.summary.loc[covariates, "coef"].idxmax()
+    st.caption(
+        f"Top predictor: **{label(top_covar)}**. "
+        "Curves show how shifting that domain score (at the 25th, 75th, and 90th percentile "
+        "of observed values) scales the baseline hazard up or down proportionally."
+    )
+    fig_hs = plot_hazard_by_score(cph_group, group_tbl, covariates)
+    st.pyplot(fig_hs)
+    plt.close(fig_hs)

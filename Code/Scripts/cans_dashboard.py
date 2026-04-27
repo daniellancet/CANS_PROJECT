@@ -241,7 +241,7 @@ def plot_90day_bars(cph_drill, items, drill_df, incident_type, dur_col, evt_col)
 
 
 def plot_baseline_hazard(cph):
-    bh = cph.baseline_hazard_["baseline hazard"].head(365)
+    bh = cph.baseline_hazard_["baseline hazard"].head(180)
     bin_size = 30
     binned = bh.groupby(bh.index // bin_size).sum()
     day_labels = binned.index * bin_size
@@ -256,7 +256,7 @@ def plot_baseline_hazard(cph):
     ax.set_title("Baseline Hazard — First Year")
     ax.set_xticks(day_labels)
     ax.set_xticklabels([i  for i in range(len(day_labels))])
-    ax.set_xlim(0, 365)
+    ax.set_xlim(0, 180)
     plt.tight_layout()
     return fig
 
@@ -264,7 +264,7 @@ def plot_baseline_hazard(cph):
 def plot_hazard_by_score(cph, cox_table, cans):
     covar = cph.summary.loc[cans, "coef"].idxmax()
     coef = cph.params_[covar]
-    bh = cph.baseline_hazard_["baseline hazard"].head(365)
+    bh = cph.baseline_hazard_["baseline hazard"].head(180)
     bin_size = 30
     binned_base = bh.groupby(bh.index // bin_size).sum()
     day_labels = binned_base.index * bin_size
@@ -290,7 +290,7 @@ def plot_hazard_by_score(cph, cox_table, cans):
     ax.set_title(f"Hazard Function by {clean_name} Score (Top Predictor)")
     ax.set_xticks(day_labels)
     ax.set_xticklabels([i for i in range(len(day_labels))])
-    ax.set_xlim(0, 365)
+    ax.set_xlim(0, 180)
     ax.legend()
     plt.tight_layout()
     return fig
